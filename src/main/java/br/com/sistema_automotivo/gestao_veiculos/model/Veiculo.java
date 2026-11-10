@@ -2,11 +2,8 @@ package br.com.sistema_automotivo.gestao_veiculos.model;
 
 import jakarta.persistence.*;
 
-import java.lang.annotation.Inherited;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-
-import javax.annotation.processing.Generated;
 
 @Entity
 @Table(name = "veiculos")
@@ -22,6 +19,9 @@ public class Veiculo {
 
     @Column(nullable = false)
     private String modelo;
+
+    @Column(length = 50)
+    private String cor;
 
     @Column(nullable = false)
     private Integer ano;
@@ -52,6 +52,9 @@ public class Veiculo {
 
     private LocalDate dataVenda;
 
+    @Column(columnDefinition = "TEXT")
+    private String fotos;
+
     // Construtor vazio exigido pelo JPA
 
     public Veiculo() {
@@ -81,6 +84,14 @@ public class Veiculo {
 
     public void setModelo(String modelo) {
         this.modelo = modelo;
+    }
+
+    public String getCor() {
+        return cor;
+    }
+
+    public void setCor(String cor) {
+        this.cor = cor;
     }
 
     public Integer getAno() {
@@ -169,5 +180,13 @@ public class Veiculo {
 
     public void setDataVenda(LocalDate dataVenda) {
         this.dataVenda = dataVenda;
+    }
+
+    public String getFotos() {
+        return fotos;
+    }
+
+    public void setFotos(String fotos) {
+        this.fotos = fotos;
     }
 }

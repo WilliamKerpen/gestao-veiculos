@@ -1,17 +1,24 @@
 package br.com.sistema_automotivo.gestao_veiculos.service;
 
-import br.com.sistema_automotivo.gestao_veiculos.dto.*;
-import br.com.sistema_automotivo.gestao_veiculos.exception.*;
-import br.com.sistema_automotivo.gestao_veiculos.model.*;
-import br.com.sistema_automotivo.gestao_veiculos.repository.VeiculoRepository;
-import br.com.sistema_automotivo.gestao_veiculos.repository.MarcaRepository;
+import java.math.BigDecimal;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.LocalDate;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
+import br.com.sistema_automotivo.gestao_veiculos.dto.AtualizarStatusDTO;
+import br.com.sistema_automotivo.gestao_veiculos.dto.VeiculoRequestDTO;
+import br.com.sistema_automotivo.gestao_veiculos.dto.VeiculoResponseDTO;
+import br.com.sistema_automotivo.gestao_veiculos.exception.RecursoNaoEncontradoException;
+import br.com.sistema_automotivo.gestao_veiculos.exception.RegraNegocioException;
+import br.com.sistema_automotivo.gestao_veiculos.model.Marca;
+import br.com.sistema_automotivo.gestao_veiculos.model.StatusVeiculo;
+import br.com.sistema_automotivo.gestao_veiculos.model.Veiculo;
+import br.com.sistema_automotivo.gestao_veiculos.repository.MarcaRepository;
+import br.com.sistema_automotivo.gestao_veiculos.repository.VeiculoRepository;
 
 @Service
 public class VeiculoService {
@@ -39,6 +46,28 @@ public class VeiculoService {
     public List<VeiculoResponseDTO> listarTodos() {
 
         return repository.findAll()
+                .stream()
+                .map(this::converterParaDTO)
+                .toList();
+    }
+
+    public List<VeiculoResponseDTO> buscarComFiltros(
+            String modelo,
+            Long marcaId,
+            BigDecimal precoMin,
+            BigDecimal precoMax,
+            Integer anoMin,
+            Integer anoMax,
+            StatusVeiculo status) {
+        if (precoMin != null && precoMax != null && precoMin.compareTo(precoMax) > 0) {
+            throw new RegraNegocioException("O preço mínimo não pode ser maior que o preço máximo");
+        }
+        if (anoMin != null && anoMax != null && anoMin > anoMax) {
+            throw new RegraNegocioException("O ano mínimo não pode ser maior que o ano máximo");
+        }
+        return repository.buscarComFiltros(
+                        modelo == null || modelo.isBlank() ? null : modelo.trim(),
+                        marcaId, precoMin, precoMax, anoMin, anoMax, status)
                 .stream()
                 .map(this::converterParaDTO)
                 .toList();
@@ -73,6 +102,7 @@ public class VeiculoService {
 
         veiculo.setMarca(marca);
         veiculo.setModelo(dados.modelo());
+        veiculo.setCor(dados.cor().trim());
         veiculo.setAno(dados.ano());
         veiculo.setPlaca(dados.placa().trim().toUpperCase());
         veiculo.setChassi(dados.chassi().trim().toUpperCase());
@@ -81,6 +111,7 @@ public class VeiculoService {
         veiculo.setCambio(dados.cambio());
         veiculo.setPrecoCompra(dados.precoCompra());
         veiculo.setPrecoVenda(dados.precoVenda());
+        veiculo.setFotos(validarFotos(dados.fotos()));
 
         veiculo.setStatus(StatusVeiculo.DISPONIVEL);
 
@@ -125,6 +156,7 @@ public class VeiculoService {
 
         veiculo.setMarca(marca);
         veiculo.setModelo(dados.modelo());
+        veiculo.setCor(dados.cor().trim());
         veiculo.setAno(dados.ano());
         veiculo.setPlaca(dados.placa().trim().toUpperCase());
         veiculo.setChassi(dados.chassi().trim().toUpperCase());
@@ -133,6 +165,9 @@ public class VeiculoService {
         veiculo.setCambio(dados.cambio());
         veiculo.setPrecoCompra(dados.precoCompra());
         veiculo.setPrecoVenda(dados.precoVenda());
+        if (dados.fotos() != null) {
+            veiculo.setFotos(validarFotos(dados.fotos()));
+        }
 
         return converterParaDTO(veiculo);
     }
@@ -157,21 +192,19 @@ public class VeiculoService {
             );
         }
 
-        if (novoStatus == StatusVeiculo.DISPONIVEL
-                && veiculo.getStatus() == StatusVeiculo.RESERVADO) {
+        if (novoStatus == StatusVeiculo.VENDIDO
+                && (veiculo.getStatus() == StatusVeiculo.DISPONIVEL
+                || veiculo.getStatus() == StatusVeiculo.RESERVADO)) {
+            veiculo.setStatus(StatusVeiculo.VENDIDO);
+            veiculo.setDataVenda(LocalDate.now());
 
+        } else if (novoStatus == StatusVeiculo.DISPONIVEL
+                && veiculo.getStatus() == StatusVeiculo.RESERVADO) {
             veiculo.setStatus(StatusVeiculo.DISPONIVEL);
 
         } else if (novoStatus == StatusVeiculo.RESERVADO
                 && veiculo.getStatus() == StatusVeiculo.DISPONIVEL) {
-
             veiculo.setStatus(StatusVeiculo.RESERVADO);
-
-        } else if (novoStatus == StatusVeiculo.VENDIDO
-                && veiculo.getStatus() == StatusVeiculo.DISPONIVEL) {
-
-            veiculo.setStatus(StatusVeiculo.VENDIDO);
-            veiculo.setDataVenda(LocalDate.now());
 
         } else {
 
@@ -270,6 +303,36 @@ public class VeiculoService {
         }
     }
 
+    private String validarFotos(String fotos) {
+        if (fotos == null || fotos.isBlank()) {
+            return "";
+        }
+
+        List<String> links = fotos.lines()
+                .map(String::trim)
+                .filter(link -> !link.isEmpty())
+                .toList();
+        if (links.size() > 4) {
+            throw new RegraNegocioException("Cada veículo pode ter no máximo 4 links de fotos");
+        }
+
+        for (String link : links) {
+            try {
+                URI uri = new URI(link);
+                String esquema = uri.getScheme();
+                if (link.length() > 5000 || uri.getHost() == null || uri.getUserInfo() != null
+                        || esquema == null
+                        || !(esquema.equalsIgnoreCase("http") || esquema.equalsIgnoreCase("https"))) {
+                    throw new RegraNegocioException(
+                            "Cada link de foto deve ser uma URL HTTP ou HTTPS válida de até 5000 caracteres");
+                }
+            } catch (URISyntaxException exception) {
+                throw new RegraNegocioException("Um dos links das fotos é inválido");
+            }
+        }
+        return String.join("\n", links);
+    }
+
     // Converter Entity para DTO
 
     private VeiculoResponseDTO converterParaDTO(Veiculo veiculo) {
@@ -283,6 +346,7 @@ public class VeiculoService {
                 veiculo.getId(),
                 veiculo.getMarca().getId(),
                 veiculo.getModelo(),
+                veiculo.getCor(),
                 veiculo.getAno(),
                 veiculo.getPlaca(),
                 veiculo.getChassi(),
@@ -294,7 +358,8 @@ public class VeiculoService {
                 lucroEstimado,
                 veiculo.getStatus(),
                 veiculo.getDataEntrada(),
-                veiculo.getDataVenda()
+                veiculo.getDataVenda(),
+                veiculo.getFotos()
         );
     }
 }

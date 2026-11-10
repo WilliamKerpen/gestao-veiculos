@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#111827">
+    <meta name="description" content="Painel profissional de gestão e consulta do estoque de veículos.">
+    <title>Autohaus | Gestão de veículos</title>
+    <link rel="stylesheet" href="./styles.css?v=6">
+    <script src="./app.js?v=6" defer></script>
+</head> 
+<body>
+    <header class="topbar">
+        <a class="brand" href="/" aria-label="Autohaus, início">
+            <span class="brand-mark">A</span>
+            <span>AUTOHAUS<small>GESTÃO AUTOMOTIVA</small></span>
+        </a>
+        <div class="topbar-right">
+            <span class="live-indicator"></span>
+            <span>Estoque atualizado</span>
+            <button class="avatar" type="button" aria-label="Perfil do administrador">A</button>
+        </div>
+    </header>
+
+    <main class="page">
+        <section class="welcome">
+            <div>
+                <p class="eyebrow">PAINEL DE CONTROLE <span>/</span> ESTOQUE</p>
+                <h1>Seu estoque,<br><em>em movimento.</em></h1>
+                <p class="welcome-copy">Acompanhe e gerencie cada veículo da sua operação em um só lugar.</p>
+            </div>
+            <button class="button button-primary button-large" id="new-vehicle" type="button">
+                <span aria-hidden="true">＋</span> Adicionar veículo
+            </button>
+        </section>
+
+        <section class="stats" aria-label="Resumo do estoque">
+            <article class="stat-card">
+                <span class="stat-icon">▤</span>
+                <div><p>Veículos no estoque</p><strong id="total-count">—</strong></div>
+                <span class="stat-caption">Total cadastrado</span>
+            </article>
+            <article class="stat-card">
+                <span class="stat-icon icon-green">↗</span>
+                <div><p>Disponíveis</p><strong id="available-count">—</strong></div>
+                <span class="stat-caption">Prontos para venda</span>
+            </article>
+            <article class="stat-card">
+                <span class="stat-icon icon-gold">R$</span>
+                <div><p>Valor em estoque</p><strong id="stock-value">—</strong></div>
+                <span class="stat-caption">Preço de compra · disponíveis</span>
+            </article>
+        </section>
+
+        <section class="inventory-section">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">INVENTÁRIO</p>
+                    <h2>Encontre seu próximo veículo</h2>
+                </div>
+                <span class="result-count" id="result-count">— veículos</span>
+            </div>
+
+            <form id="filters-form" class="filters-panel">
+                <label class="filter-field filter-search">
+                    <span>Modelo</span>
+                    <input id="filter-model" name="modelo" type="search" placeholder="Ex.: Corolla, Civic..." autocomplete="off">
+                </label>
+                <label class="filter-field">
+                    <span>Marca</span>
+                    <select id="filter-brand" name="marcaId"><option value="">Todas as marcas</option></select>
+                </label>
+                <label class="filter-field">
+                    <span>Preço mínimo</span>
+                    <input name="precoMin" type="number" min="0" step="0.01" placeholder="R$ 0">
+                </label>
+                <label class="filter-field">
+                    <span>Preço máximo</span>
+                    <input name="precoMax" type="number" min="0" step="0.01" placeholder="Sem limite">
+                </label>
+                <label class="filter-field">
+                    <span>Ano inicial</span>
+                    <input name="anoMin" type="number" min="1900" max="2100" placeholder="De">
+                </label>
+                <label class="filter-field">
+                    <span>Ano final</span>
+                    <input name="anoMax" type="number" min="1900" max="2100" placeholder="Até">
+                </label>
+                <label class="filter-field">
+                    <span>Status</span>
+                    <select name="status">
+                        <option value="">Todos</option>
+                        <option value="DISPONIVEL">Disponível</option>
+                        <option value="RESERVADO">Reservado</option>
+                        <option value="VENDIDO">Vendido</option>
+                    </select>
+                </label>
+                <div class="filter-actions">
+                    <button class="button button-quiet" id="clear-filters" type="reset">Limpar</button>
+                    <button class="button button-primary" type="submit">Filtrar <span aria-hidden="true">→</span></button>
+                </div>
+            </form>
+
+            <div id="notice" class="notice" role="status" hidden></div>
+            <div id="vehicle-grid" class="vehicle-grid" aria-live="polite">
+                <div class="loading-state"><span class="spinner"></span> Carregando veículos...</div>
+            </div>
+        </section>
+
+        <details class="brands-panel">
+            <summary>
+                <span class="brand-summary-icon">✳</span>
+                <span class="brand-summary-text"><strong>Marcas cadastradas</strong><small>Gerencie as marcas disponíveis para novos veículos</small></span>
+                <span class="summary-arrow">＋</span>
+            </summary>
+            <form id="brand-form" class="brand-form">
+                <label for="brand-name">Adicionar uma marca</label>
+                <div class="inline-form">
+                    <input id="brand-name" name="nome" maxlength="100" required placeholder="Ex.: Toyota">
+                    <button class="button button-secondary" type="submit">Adicionar marca</button>
+                </div>
+            </form>
+            <ul id="brand-list" class="brand-list"></ul>
+        </details>
+    </main>
+
+    <footer class="footer"><span>AUTOHAUS</span><span>Gestão inteligente de estoque</span></footer>
+
+    <dialog id="vehicle-dialog" class="dialog">
+        <form id="vehicle-form">
+            <div class="dialog-heading">
+                <div><p class="eyebrow">INFORMAÇÕES DO VEÍCULO</p><h2 id="vehicle-dialog-title">Adicionar veículo</h2></div>
+                <button class="icon-button" type="button" data-close="vehicle-dialog" aria-label="Fechar">×</button>
+            </div>
+            <input id="vehicle-id" type="hidden">
+            <div class="form-grid">
+                <label>Marca<select id="marcaId" name="marcaId" required></select></label>
+                <label>Modelo<input name="modelo" required maxlength="120" placeholder="Ex.: Corolla XEi"></label>
+                <label>Cor<input name="cor" required maxlength="50" placeholder="Ex.: Prata"></label>
+                <label>Ano<input name="ano" type="number" min="1900" max="2100" required placeholder="2024"></label>
+                <label>Placa<input name="placa" required maxlength="10" placeholder="ABC1D23"></label>
+                <label>Chassi<input name="chassi" required maxlength="30"></label>
+                <label>Quilometragem<input name="quilometragem" type="number" min="0" required></label>
+                <label>Combustível<input name="combustivel" required maxlength="40" placeholder="Flex"></label>
+                <label>Câmbio<input name="cambio" required maxlength="40" placeholder="Automático"></label>
+                <label>Preço de compra<input name="precoCompra" type="number" min="0.01" step="0.01" required></label>
+                <label>Preço de venda<input name="precoVenda" type="number" min="0.01" step="0.01" required></label>
+            </div>
+            <label class="photo-links-field" for="vehicle-photos">
+                Links das fotos
+                <textarea id="vehicle-photos" name="fotos" rows="4" maxlength="20003" placeholder="https://exemplo.com/carro-frente.jpg&#10;https://exemplo.com/carro-lado.jpg"></textarea>
+                <small>Opcional. Informe até 4 URLs HTTP/HTTPS, uma por linha; cada link pode ter até 5.000 caracteres.</small>
+            </label>
+            <p class="form-error" id="vehicle-error" role="alert" hidden></p>
+            <div class="dialog-actions">
+                <button class="button button-quiet" type="button" data-close="vehicle-dialog">Cancelar</button>
+                <button class="button button-primary" type="submit">Salvar veículo</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="photos-dialog" class="dialog photos-dialog">
+        <div class="dialog-heading">
+            <div><p class="eyebrow">GALERIA DO VEÍCULO</p><h2 id="photos-title">Fotos</h2></div>
+            <button class="icon-button" type="button" data-close="photos-dialog" aria-label="Fechar">×</button>
+        </div>
+        <p class="dialog-copy">Adicione até quatro links públicos de imagens. Os arquivos não são enviados nem guardados no sistema.</p>
+        <div id="photo-list" class="photo-list"></div>
+        <form id="photo-form" class="photo-form">
+            <label for="photo-url">URL da imagem</label>
+            <div class="inline-form">
+                <input id="photo-url" name="url" type="url" required maxlength="5000" placeholder="https://exemplo.com/imagem.jpg">
+                <button id="photo-submit" class="button button-secondary" type="submit">Adicionar link</button>
+            </div>
+            <button id="photo-cancel-edit" class="button button-quiet" type="button" hidden>Cancelar edição</button>
+        </form>
+        <p class="form-error" id="photo-error" role="alert" hidden></p>
+    </dialog>
+
+    <dialog id="status-dialog" class="dialog status-dialog">
+        <form id="status-form">
+            <div class="dialog-heading">
+                <div><p class="eyebrow">ATUALIZAR ESTOQUE</p><h2>Alterar status</h2></div>
+                <button class="icon-button" type="button" data-close="status-dialog" aria-label="Fechar">×</button>
+            </div>
+            <p id="status-vehicle-name" class="dialog-copy"></p>
+            <label class="filter-field">Novo status
+                <select id="new-status" name="status" required></select>
+            </label>
+            <p class="form-error" id="status-error" role="alert" hidden></p>
+            <div class="dialog-actions">
+                <button class="button button-quiet" type="button" data-close="status-dialog">Cancelar</button>
+                <button class="button button-primary" type="submit">Salvar status</button>
+            </div>
+        </form>
+    </dialog>
+</body>
+</html>

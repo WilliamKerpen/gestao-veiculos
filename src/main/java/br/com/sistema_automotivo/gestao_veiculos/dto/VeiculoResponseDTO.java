@@ -10,6 +10,7 @@ public record VeiculoResponseDTO(
     Long id,
     Long marcaId,
     String modelo,
+    String cor,
     Integer ano,
     String placa,
     String chassi,
@@ -21,7 +22,8 @@ public record VeiculoResponseDTO(
     BigDecimal lucroEstimado,
     StatusVeiculo status,
     LocalDate dataEntrada,
-    LocalDate dataVenda
+    LocalDate dataVenda,
+    String fotos
 
 ) {
 }
